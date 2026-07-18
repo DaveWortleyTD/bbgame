@@ -42,6 +42,7 @@ let grid = [];             // array of array of chars
 let brush = '.';
 let zoom = 2;
 let showGrid = true;
+let showLabels = true;
 let undoStack = [];
 let painting = 0;          // 1 = paint, 2 = erase
 let customTiles = {};      // name -> {px: [16 strings], solid: bool}
@@ -224,6 +225,16 @@ function render() {
     for (let i = 0; i <= W; i++) { vctx.beginPath(); vctx.moveTo(i * 16 + 0.5, 0); vctx.lineTo(i * 16 + 0.5, H * 16); vctx.stroke(); }
     for (let j = 0; j <= H; j++) { vctx.beginPath(); vctx.moveTo(0, j * 16 + 0.5); vctx.lineTo(W * 16, j * 16 + 0.5); vctx.stroke(); }
   }
+  // location titles (same data the game renders in the overworld)
+  if (showLabels && cur.def.labels) {
+    for (const [tx, ty, t] of cur.def.labels) {
+      const lx = tx * 16 + 8, ly = Math.max(1, ty * 16 - 10);
+      const w = textWidth(t, 1) + 4;
+      vctx.fillStyle = 'rgba(0,0,0,.65)';
+      vctx.fillRect(lx - w / 2, ly - 1, w, 7);
+      drawTextC(vctx, t, lx, ly, 'w', 1);
+    }
+  }
   updateStats();
 }
 
@@ -270,7 +281,9 @@ view.addEventListener('mousemove', ev => {
   if (!painting || !c) return;
   applyBrush(c[0], c[1], painting === 2 ? '.' : brush);
 });
-window.addEventListener('mouseup', () => { if (painting) { painting = 0; updateExport(); } });
+window.addEventListener('mouseup', () => {
+  if (painting) { painting = 0; updateExport(); render(); }  // re-render restores labels chipped while dragging
+});
 view.addEventListener('contextmenu', ev => ev.preventDefault());
 window.addEventListener('keydown', ev => {
   if ((ev.ctrlKey || ev.metaKey) && ev.code === 'KeyZ') {
@@ -545,6 +558,7 @@ REGISTRY.forEach((r, i) => {
 sel.onchange = () => selectLevel(+sel.value);
 $('zoomSel').onchange = ev => { zoom = +ev.target.value; render(); };
 $('gridChk').onchange = ev => { showGrid = ev.target.checked; render(); };
+$('labelsChk').onchange = ev => { showLabels = ev.target.checked; render(); };
 $('undoBtn').onclick = () => { const p = undoStack.pop(); if (p) { grid = p; render(); updateExport(); } };
 $('revertBtn').onclick = () => {
   const edits = loadEdits();
@@ -578,4 +592,8 @@ $('copyBtn').onclick = () => {
   navigator.clipboard.writeText($('export').value).then(() => status('copied'));
 };
 
-selectLevel(0);
+// #<mapkey> in the URL preselects that map (e.g. editor.html#WORLD)
+let startIdx = REGISTRY.findIndex(r => r.key === decodeURIComponent((location.hash || '').slice(1)));
+if (startIdx < 0) startIdx = 0;
+sel.value = startIdx;
+selectLevel(startIdx);
