@@ -1036,6 +1036,27 @@ function renderVictory() {
 }
 
 // ---------------- boot ----------------
+// apply map overrides saved by the level editor (editor.html)
+(function () {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const raw = localStorage.getItem('bbgameEdits');
+    if (!raw) return;
+    const edits = JSON.parse(raw);
+    const reg = { WORLD, SIDE_COOK, SIDE_WASH, SIDE_PEST };
+    LEVELS.forEach((L, i) => {
+      reg['L' + i] = L;
+      if (L.chain) reg['L' + i + '.chain'] = L.chain;
+      if (L.phase2) reg['L' + i + '.phase2'] = L.phase2;
+    });
+    let n = 0;
+    for (const k in edits) {
+      if (reg[k] && Array.isArray(edits[k]) && edits[k].length) { reg[k].map = edits[k]; n++; }
+    }
+    if (n) console.log('[editor] applied ' + n + ' custom map(s) - clear them in editor.html');
+  } catch (e) { console.warn('[editor] overrides skipped:', e); }
+})();
+
 // dev: ?level=N jumps straight into level N
 if (typeof location !== 'undefined') {
   const m = /[?&]level=(\d+)/.exec(location.search);

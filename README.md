@@ -57,6 +57,19 @@ pedestrians (Jesse can deal product to them — cooking builds stock), 8
 hidden crystals ($1000 bonus), and townsfolk whose dialog changes as the
 story advances.
 
+## Level editor
+
+Open `editor.html` (linked under the game screen). Pick any of the 31 maps —
+missions, their part-2/phase-2 follow-ups, side jobs, or the whole open
+world — and paint with the palette: left-drag paints, right-drag erases,
+alt-click picks the char under the cursor, Ctrl+Z undoes.
+
+- **Save to game** stores the map in your browser; the game applies it on
+  next load (same server), so refresh the game tab to playtest. **Revert
+  map** / **clear all saved edits** undo that.
+- **Map as code** shows the `map:` snippet — paste it into `js/levels.js`
+  to make the change permanent for everyone.
+
 ## Files
 
 - `index.html`, `style.css` — CRT-styled shell around a 320×240 canvas
