@@ -69,6 +69,11 @@ alt-click picks the char under the cursor, Ctrl+Z undoes.
   map** / **clear all saved edits** undo that.
 - **Map as code** shows the `map:` snippet — paste it into `js/levels.js`
   to make the change permanent for everyone.
+- **Tile library** lets any map borrow any tile from any level — pick one
+  and it's auto-assigned a free map character for the current map.
+- **New tile / edit** opens a 16x16 pixel designer using the game palette:
+  paint, copy from an existing tile, mark it solid or walkable, save, and
+  it joins the library (and works in-game via the same save-to-game flow).
 
 ## Files
 

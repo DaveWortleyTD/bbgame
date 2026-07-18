@@ -504,6 +504,12 @@ TILE.exit    = makeTile('k', null, 0, x => {
   x.fillStyle = COL.Y; x.fillRect(6, 6, 4, 4);
 });
 
+// Tiles that block movement (game + editor both consult this;
+// custom tiles register themselves here via their `solid` flag)
+const SOLID = new Set(['rock', 'cactus', 'brick', 'labwall', 'tank', 'wallhome',
+  'train', 'car', 'crate', 'table', 'bed', 'fence', 'pool', 'tent',
+  'shelf', 'scrap', 'board', 'hospwall']);
+
 // ============================================================
 // 3x5 bitmap font. Each glyph = 15-char string of 0/1, 5 rows x 3 cols.
 // ============================================================

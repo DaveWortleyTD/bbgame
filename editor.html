@@ -29,6 +29,32 @@
   #hint { color: #777; font-size: 11px; line-height: 1.5; }
   .warn { color: #f66; }
   .ok { color: #6f6; }
+  .pal .edit { margin-left: auto; color: #fd6; font-size: 11px; padding: 0 4px; }
+  .pal .edit:hover { text-decoration: underline; }
+  .palbtn { display: block; width: 100%; margin: 0 0 6px; background: #203030; color: #6fd;
+            border: 1px solid #365; padding: 5px; font-family: monospace; cursor: pointer; }
+  .palbtn:hover { background: #2a4040; }
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75);
+             align-items: center; justify-content: center; z-index: 10; }
+  .panel { background: #1b1b22; border: 1px solid #444; border-radius: 6px; padding: 14px;
+           max-height: 85vh; display: flex; flex-direction: column; gap: 10px; }
+  .panel h3 { color: #6fd; }
+  #liblist { overflow-y: auto; width: 340px; max-height: 65vh; }
+  #liblist .pal canvas { width: 28px; height: 28px; }
+  #dcanvas { image-rendering: pixelated; width: 384px; height: 384px; cursor: crosshair;
+             border: 1px solid #444; }
+  #dpalette { display: grid; grid-template-columns: repeat(13, 22px); gap: 3px; }
+  .dcol { width: 22px; height: 22px; border: 1px solid #444; cursor: pointer; }
+  .dcol.sel { outline: 2px solid #6fd; }
+  .dcol.trans { background:
+      repeating-conic-gradient(#333 0 25%, #222 0 50%) 0 0/8px 8px !important; }
+  #designer .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #designer input[type=text], #designer select {
+    background: #111; color: #eee; border: 1px solid #444; padding: 4px; font-family: monospace; }
+  #designer button { background: #2a2a34; color: #eee; border: 1px solid #444;
+    padding: 5px 10px; font-family: monospace; cursor: pointer; }
+  #dpreview { image-rendering: pixelated; width: 192px; height: 96px; border: 1px solid #444; }
+  #dstatus { color: #f66; min-height: 15px; }
 </style>
 </head>
 <body>
@@ -69,6 +95,41 @@
     <div id="stats"></div>
   </div>
 </div>
+<!-- tile library overlay -->
+<div id="library" class="overlay">
+  <div class="panel">
+    <h3>TILE LIBRARY - every tile from every level</h3>
+    <div id="liblist"></div>
+    <button id="libclose">close</button>
+  </div>
+</div>
+
+<!-- tile designer overlay -->
+<div id="designer" class="overlay">
+  <div class="panel">
+    <h3 id="dtitle">NEW TILE</h3>
+    <div class="row">
+      <canvas id="dcanvas" width="256" height="256"></canvas>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div id="dpalette"></div>
+        <select id="dload"></select>
+        <canvas id="dpreview" width="96" height="48"></canvas>
+        <div class="row">
+          <input type="text" id="dname" placeholder="tile name" maxlength="16" size="14">
+          <label><input type="checkbox" id="dsolid"> solid (blocks walking)</label>
+        </div>
+        <div id="dstatus"></div>
+        <div class="row">
+          <button id="dsave"><b>save tile</b></button>
+          <button id="ddelete">delete</button>
+          <button id="dcancel">cancel</button>
+        </div>
+        <div style="color:#777;font-size:11px">left-drag paint &middot; right-drag erase<br>alt-click pick color</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="js/sprites.js"></script>
 <script src="js/levels.js"></script>
 <script src="js/editor.js"></script>

@@ -213,9 +213,7 @@ function loadDef(L) {
 }
 
 // ---------------- Tile collision ----------------
-const SOLID = new Set(['rock', 'cactus', 'brick', 'labwall', 'tank', 'wallhome',
-  'train', 'car', 'crate', 'table', 'bed', 'fence', 'pool', 'tent',
-  'shelf', 'scrap', 'board', 'hospwall']);
+// (SOLID lives in sprites.js so the editor shares it)
 
 function tileAt(px, py) {
   const i = Math.floor(px / TS), j = Math.floor(py / TS);
@@ -1050,10 +1048,24 @@ function renderVictory() {
       if (L.phase2) reg['L' + i + '.phase2'] = L.phase2;
     });
     let n = 0;
-    for (const k in edits) {
-      if (reg[k] && Array.isArray(edits[k]) && edits[k].length) { reg[k].map = edits[k]; n++; }
+    // custom tile designs first: {name: {px: [16 rows of palette chars], solid}}
+    const ct = edits['::tiles'];
+    if (ct) {
+      for (const name in ct) {
+        TILE[name] = makeSprite(ct[name].px);
+        if (ct[name].solid) SOLID.add(name); else SOLID.delete(name);
+        n++;
+      }
     }
-    if (n) console.log('[editor] applied ' + n + ' custom map(s) - clear them in editor.html');
+    for (const k in edits) {
+      if (k.indexOf('::tilemap:') === 0) {   // per-map char -> tile additions
+        const def = reg[k.slice(10)];
+        if (def) { def.tiles = Object.assign({}, def.tiles, edits[k]); n++; }
+      } else if (reg[k] && Array.isArray(edits[k]) && edits[k].length) {
+        reg[k].map = edits[k]; n++;
+      }
+    }
+    if (n) console.log('[editor] applied ' + n + ' customization(s) - clear them in editor.html');
   } catch (e) { console.warn('[editor] overrides skipped:', e); }
 })();
 

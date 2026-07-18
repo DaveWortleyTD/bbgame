@@ -1,5 +1,6 @@
 // ============================================================
-// editor.js — paint tiles/things on any map, export as code,
+// editor.js — paint tiles/things on any map, pull tiles from the
+// global tile library, design your own 16x16 tiles, export as code,
 // or save to localStorage where the game auto-applies it.
 // Loads sprites.js + levels.js (not game.js — no game loop here).
 // ============================================================
@@ -32,7 +33,59 @@ const PICKUP_SPRITE = {
   crystal: 'crystal', hcrystal: 'crystal', supply: 'flask', ingredient: 'flask', chk: 'arrow',
 };
 
-// ---- describe a char within a def ----
+// chars we may hand out when a library tile needs a slot in this map
+const CHAR_POOL = 'abcdefghijklmnopqrstuvwxyzABDEFGIJKLMNQRSTUVWYZ0123456789!@%^&*()_+[]{};<>?~|';
+
+// ---- state ----
+let cur = null;            // registry entry
+let grid = [];             // array of array of chars
+let brush = '.';
+let zoom = 2;
+let showGrid = true;
+let undoStack = [];
+let painting = 0;          // 1 = paint, 2 = erase
+let customTiles = {};      // name -> {px: [16 strings], solid: bool}
+let extraTiles = {};       // mapKey -> {char: tileName}
+
+const $ = id => document.getElementById(id);
+const view = $('view');
+const vctx = view.getContext('2d');
+vctx.imageSmoothingEnabled = false;
+
+function loadEdits() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
+  catch (e) { return {}; }
+}
+function saveEdits(edits) { localStorage.setItem(STORE_KEY, JSON.stringify(edits)); }
+
+// restore custom tiles + per-map tile mappings from the store
+(function restoreTileState() {
+  const edits = loadEdits();
+  customTiles = edits['::tiles'] || {};
+  for (const name in customTiles) {
+    TILE[name] = makeSprite(customTiles[name].px);
+    if (customTiles[name].solid) SOLID.add(name);
+  }
+  for (const k in edits) if (k.indexOf('::tilemap:') === 0) extraTiles[k.slice(10)] = edits[k];
+})();
+
+function persistTileState() {
+  const edits = loadEdits();
+  if (Object.keys(customTiles).length) edits['::tiles'] = customTiles;
+  else delete edits['::tiles'];
+  for (const mk in extraTiles) {
+    if (Object.keys(extraTiles[mk]).length) edits['::tilemap:' + mk] = extraTiles[mk];
+    else delete edits['::tilemap:' + mk];
+  }
+  saveEdits(edits);
+}
+
+// effective char->tile mapping for the current map (base + library additions)
+function allTiles() {
+  return Object.assign({}, cur.def.tiles, extraTiles[cur.key] || {});
+}
+
+// ---- describe a char within the current map ----
 function charInfo(def, ch) {
   if (ch === 'P') return { kind: 'player', name: 'player start', color: '#4f4' };
   if (ch === 'X') return { kind: 'exit', name: 'exit', color: '#f4f' };
@@ -46,8 +99,10 @@ function charInfo(def, ch) {
     }
     if (spec.i) return { kind: 'inter', name: 'object: ' + (spec.i.label || spec.i.sprite || ch), sprite: spec.i.sprite, color: '#6fd' };
   }
-  const tile = def.tiles[ch];
-  if (tile) return { kind: 'tile', name: 'tile: ' + tile, tile, color: '#999' };
+  const tile = allTiles()[ch];
+  if (tile) {
+    return { kind: 'tile', name: 'tile: ' + tile + (SOLID.has(tile) ? ' (solid)' : ''), tile, color: '#999' };
+  }
   return null;
 }
 
@@ -57,32 +112,13 @@ function floorTileOf(def, ch) {
   return def.tiles['.'];
 }
 
-// ---- state ----
-let cur = null;            // registry entry
-let grid = [];             // array of array of chars
-let brush = '.';
-let zoom = 2;
-let showGrid = true;
-let undoStack = [];
-let painting = 0;          // 1 = paint, 2 = erase
-
-const $ = id => document.getElementById(id);
-const view = $('view');
-const vctx = view.getContext('2d');
-vctx.imageSmoothingEnabled = false;
-
-function loadEdits() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
-  catch (e) { return {}; }
-}
-function saveEdits(edits) { localStorage.setItem(STORE_KEY, JSON.stringify(edits)); }
-
 // ---- level switching ----
 function selectLevel(idx) {
   cur = REGISTRY[idx];
   const saved = loadEdits()[cur.key];
   const rows = saved || cur.def.map;
-  grid = rows.map(r => r.split(''));
+  const w = Math.max(...rows.map(r => r.length));
+  grid = rows.map(r => r.padEnd(w, '.').split(''));
   undoStack = [];
   brush = '.';
   buildPalette();
@@ -95,8 +131,20 @@ function selectLevel(idx) {
 function buildPalette() {
   const pal = $('palette');
   pal.innerHTML = '';
+
+  const libBtn = document.createElement('button');
+  libBtn.className = 'palbtn';
+  libBtn.textContent = '+ TILE LIBRARY';
+  libBtn.onclick = openLibrary;
+  const newBtn = document.createElement('button');
+  newBtn.className = 'palbtn';
+  newBtn.textContent = '* NEW TILE';
+  newBtn.onclick = () => openDesigner(null);
+  pal.append(libBtn, newBtn);
+
+  const tiles = allTiles();
   const chars = [];
-  for (const ch in cur.def.tiles) chars.push(ch);
+  for (const ch in tiles) chars.push(ch);
   if (cur.def.things) for (const ch in cur.def.things) if (chars.indexOf(ch) < 0) chars.push(ch);
   for (const ch of ['P', 'X']) if (chars.indexOf(ch) < 0) chars.push(ch);
 
@@ -114,9 +162,33 @@ function buildPalette() {
     const nm = document.createElement('span');
     nm.className = 'nm'; nm.textContent = info.name;
     row.append(sw, chEl, nm);
+    if (info.kind === 'tile' && customTiles[info.tile]) {
+      const ed = document.createElement('span');
+      ed.className = 'edit'; ed.textContent = 'edit';
+      ed.onclick = ev => { ev.stopPropagation(); openDesigner(info.tile); };
+      row.appendChild(ed);
+    }
     row.onclick = () => { brush = ch; buildPalette(); };
     pal.appendChild(row);
   }
+}
+
+// find (or mint) a map char for a tile name; returns the char or null
+function charForTile(tileName) {
+  const tiles = allTiles();
+  for (const ch in tiles) if (tiles[ch] === tileName) return ch;
+  const taken = new Set(Object.keys(tiles));
+  if (cur.def.things) for (const ch in cur.def.things) taken.add(ch);
+  taken.add('P'); taken.add('X');
+  for (const ch of CHAR_POOL) {
+    if (!taken.has(ch)) {
+      if (!extraTiles[cur.key]) extraTiles[cur.key] = {};
+      extraTiles[cur.key][ch] = tileName;
+      persistTileState();
+      return ch;
+    }
+  }
+  return null;
 }
 
 // ---- rendering ----
@@ -135,7 +207,6 @@ function drawCellOn(c, x, y, ch, info) {
     c.globalAlpha = 0.35; c.fillRect(x + 1, y + 1, 14, 14); c.globalAlpha = 1;
     drawText(c, ch, x + 6, y + 5, 'w', 1);
   }
-  // corner tag so P/X/things stay findable even under sprites
   c.fillStyle = info.color;
   c.fillRect(x, y, 3, 3);
 }
@@ -209,11 +280,234 @@ window.addEventListener('keydown', ev => {
   }
 });
 
+// ============================================================
+// Tile library overlay
+// ============================================================
+function openLibrary() {
+  const ov = $('library');
+  const list = $('liblist');
+  list.innerHTML = '';
+  const names = Object.keys(TILE).sort();
+  for (const name of names) {
+    const row = document.createElement('div');
+    row.className = 'pal';
+    const sw = document.createElement('canvas');
+    sw.width = 16; sw.height = 16;
+    sw.getContext('2d').drawImage(TILE[name], 0, 0);
+    const nm = document.createElement('span');
+    nm.className = 'nm';
+    nm.textContent = name + (SOLID.has(name) ? ' (solid)' : '') + (customTiles[name] ? ' *custom' : '');
+    row.append(sw, nm);
+    if (customTiles[name]) {
+      const ed = document.createElement('span');
+      ed.className = 'edit'; ed.textContent = 'edit';
+      ed.onclick = ev => { ev.stopPropagation(); ov.style.display = 'none'; openDesigner(name); };
+      row.appendChild(ed);
+    }
+    row.onclick = () => {
+      const ch = charForTile(name);
+      if (!ch) { status('no free map chars left for this map'); return; }
+      brush = ch;
+      ov.style.display = 'none';
+      buildPalette();
+      status("'" + name + "' painted with char '" + ch + "'");
+    };
+    list.appendChild(row);
+  }
+  ov.style.display = 'flex';
+}
+$('libclose').onclick = () => { $('library').style.display = 'none'; };
+
+// ============================================================
+// Tile designer overlay
+// ============================================================
+const D = { px: [], color: 'w', editing: null, painting: 0 };
+const dcanvas = $('dcanvas');
+const dctx = dcanvas.getContext('2d');
+dctx.imageSmoothingEnabled = false;
+const DCELL = 16; // display px per tile pixel
+
+function blankPx() { return Array.from({ length: 16 }, () => '.'.repeat(16)); }
+
+function openDesigner(name) {
+  D.editing = name;
+  if (name && customTiles[name]) {
+    D.px = customTiles[name].px.slice();
+    $('dname').value = name;
+    $('dsolid').checked = !!customTiles[name].solid;
+  } else {
+    D.px = blankPx();
+    $('dname').value = '';
+    $('dsolid').checked = false;
+  }
+  $('dtitle').textContent = name ? 'EDIT TILE: ' + name : 'NEW TILE';
+  buildDesignerPalette();
+  buildLoadFrom();
+  drawDesigner();
+  $('designer').style.display = 'flex';
+}
+
+function buildDesignerPalette() {
+  const pal = $('dpalette');
+  pal.innerHTML = '';
+  const entries = [['.', 'transparent']].concat(Object.keys(COL).map(k => [k, '']));
+  for (const [k] of entries) {
+    const b = document.createElement('div');
+    b.className = 'dcol' + (D.color === k ? ' sel' : '');
+    b.style.background = k === '.' ? 'transparent' : COL[k];
+    if (k === '.') b.classList.add('trans');
+    b.title = k;
+    b.onclick = () => { D.color = k; buildDesignerPalette(); };
+    pal.appendChild(b);
+  }
+}
+
+function buildLoadFrom() {
+  const sel = $('dload');
+  sel.innerHTML = '<option value="">copy from existing...</option>';
+  for (const name of Object.keys(TILE).sort()) {
+    const o = document.createElement('option');
+    o.value = name; o.textContent = name;
+    sel.appendChild(o);
+  }
+}
+
+$('dload').onchange = ev => {
+  const name = ev.target.value;
+  if (!name) return;
+  if (customTiles[name]) { D.px = customTiles[name].px.slice(); drawDesigner(); return; }
+  // sample the built-in tile canvas, snapping to the nearest palette color
+  const c = TILE[name].getContext('2d');
+  const img = c.getImageData(0, 0, 16, 16).data;
+  const colv = Object.keys(COL).map(k => {
+    const h = COL[k];
+    return [k, parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  });
+  const rows = [];
+  for (let j = 0; j < 16; j++) {
+    let row = '';
+    for (let i = 0; i < 16; i++) {
+      const o = (j * 16 + i) * 4;
+      if (img[o + 3] < 128) { row += '.'; continue; }
+      let best = 'k', bd = 1e9;
+      for (const [k, r, g, b] of colv) {
+        const d = (img[o] - r) ** 2 + (img[o + 1] - g) ** 2 + (img[o + 2] - b) ** 2;
+        if (d < bd) { bd = d; best = k; }
+      }
+      row += best;
+    }
+    rows.push(row);
+  }
+  D.px = rows;
+  drawDesigner();
+  ev.target.value = '';
+};
+
+function drawDesigner() {
+  dcanvas.width = 16 * DCELL; dcanvas.height = 16 * DCELL;
+  for (let j = 0; j < 16; j++) {
+    for (let i = 0; i < 16; i++) {
+      const ch = D.px[j][i];
+      if (ch === '.') {   // checkerboard = transparent
+        dctx.fillStyle = (i + j) % 2 ? '#26262c' : '#1c1c22';
+      } else {
+        dctx.fillStyle = COL[ch] || '#f0f';
+      }
+      dctx.fillRect(i * DCELL, j * DCELL, DCELL, DCELL);
+    }
+  }
+  dctx.strokeStyle = 'rgba(255,255,255,.07)';
+  for (let i = 0; i <= 16; i++) {
+    dctx.beginPath(); dctx.moveTo(i * DCELL + 0.5, 0); dctx.lineTo(i * DCELL + 0.5, 256); dctx.stroke();
+    dctx.beginPath(); dctx.moveTo(0, i * DCELL + 0.5); dctx.lineTo(256, i * DCELL + 0.5); dctx.stroke();
+  }
+  // live preview at 1x and on a floor tile
+  const pv = $('dpreview').getContext('2d');
+  pv.imageSmoothingEnabled = false;
+  pv.clearRect(0, 0, 96, 48);
+  const spr = makeSprite(D.px);
+  pv.fillStyle = '#000'; pv.fillRect(0, 0, 96, 48);
+  pv.drawImage(spr, 4, 16);
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) pv.drawImage(spr, 40 + i * 16, j * 16);
+}
+
+function dcell(ev) {
+  const r = dcanvas.getBoundingClientRect();
+  const i = Math.floor((ev.clientX - r.left) / (r.width / 16));
+  const j = Math.floor((ev.clientY - r.top) / (r.height / 16));
+  if (i < 0 || j < 0 || i > 15 || j > 15) return null;
+  return [i, j];
+}
+function dpaint(i, j, ch) {
+  D.px[j] = D.px[j].slice(0, i) + ch + D.px[j].slice(i + 1);
+  drawDesigner();
+}
+dcanvas.addEventListener('mousedown', ev => {
+  ev.preventDefault();
+  const c = dcell(ev);
+  if (!c) return;
+  if (ev.altKey || ev.button === 1) { D.color = D.px[c[1]][c[0]]; buildDesignerPalette(); return; }
+  D.painting = ev.button === 2 ? 2 : 1;
+  dpaint(c[0], c[1], D.painting === 2 ? '.' : D.color);
+});
+dcanvas.addEventListener('mousemove', ev => {
+  if (!D.painting) return;
+  const c = dcell(ev);
+  if (c) dpaint(c[0], c[1], D.painting === 2 ? '.' : D.color);
+});
+window.addEventListener('mouseup', () => { D.painting = 0; });
+dcanvas.addEventListener('contextmenu', ev => ev.preventDefault());
+
+$('dsave').onclick = () => {
+  const name = $('dname').value.trim().toLowerCase();
+  if (!/^[a-z][a-z0-9_]{1,15}$/.test(name)) { $('dstatus').textContent = 'name: a-z, 0-9, _ (2-16 chars)'; return; }
+  if (TILE[name] && !customTiles[name] && name !== D.editing) { $('dstatus').textContent = "'" + name + "' is a built-in tile name"; return; }
+  if (D.editing && D.editing !== name) delete customTiles[D.editing];
+  customTiles[name] = { px: D.px.slice(), solid: $('dsolid').checked };
+  TILE[name] = makeSprite(D.px);
+  if ($('dsolid').checked) SOLID.add(name); else SOLID.delete(name);
+  persistTileState();
+  $('designer').style.display = 'none';
+  const ch = charForTile(name);
+  if (ch) { brush = ch; status("tile '" + name + "' saved - painting with '" + ch + "'"); }
+  buildPalette();
+  render();   // repaint in case an edited tile is already on the map
+};
+$('dcancel').onclick = () => { $('designer').style.display = 'none'; };
+$('ddelete').onclick = () => {
+  if (!D.editing || !customTiles[D.editing]) { $('designer').style.display = 'none'; return; }
+  const name = D.editing;
+  const usedBy = [];
+  for (const mk in extraTiles)
+    for (const ch in extraTiles[mk])
+      if (extraTiles[mk][ch] === name) usedBy.push(mk);
+  if (usedBy.length) { $('dstatus').textContent = 'in use on: ' + usedBy.join(', ') + ' - repaint those first'; return; }
+  delete customTiles[name];
+  delete TILE[name];
+  SOLID.delete(name);
+  persistTileState();
+  $('designer').style.display = 'none';
+  buildPalette();
+};
+
 // ---- export / stats / persistence ----
 function mapRows() { return grid.map(r => r.join('')); }
 
 function updateExport() {
-  $('export').value = '  map: [\n' + mapRows().map(r => "    '" + r + "',").join('\n') + '\n  ],';
+  let out = '  map: [\n' + mapRows().map(r => "    '" + r + "',").join('\n') + '\n  ],';
+  const extra = extraTiles[cur.key];
+  if (extra && Object.keys(extra).length) {
+    out += '\n\n  // add to this level\'s tiles: {}\n';
+    out += Object.keys(extra).map(ch => "  '" + ch + "': '" + extra[ch] + "',").join('\n');
+  }
+  const used = new Set();
+  const tiles = allTiles();
+  for (const r of mapRows()) for (const ch of r) if (tiles[ch] && customTiles[tiles[ch]]) used.add(tiles[ch]);
+  if (used.size) {
+    out += '\n\n  // custom tile defs (build with makeSprite, add solid ones to SOLID):\n';
+    for (const name of used) out += '  // ' + name + ': ' + JSON.stringify(customTiles[name]) + '\n';
+  }
+  $('export').value = out;
 }
 
 function validate() {
@@ -257,6 +551,8 @@ $('revertBtn').onclick = () => {
   delete edits[cur.key];
   saveEdits(edits);
   grid = cur.def.map.map(r => r.split(''));
+  const w = Math.max(...grid.map(r => r.length));
+  grid = grid.map(r => { while (r.length < w) r.push('.'); return r; });
   undoStack = [];
   render(); updateExport();
   status('reverted to the shipped map');
@@ -267,10 +563,14 @@ $('saveBtn').onclick = () => {
   const edits = loadEdits();
   edits[cur.key] = mapRows();
   saveEdits(edits);
+  persistTileState();
   status('saved! refresh the game tab to play it');
 };
 $('clearBtn').onclick = () => {
   localStorage.removeItem(STORE_KEY);
+  for (const name in customTiles) { delete TILE[name]; SOLID.delete(name); }
+  customTiles = {};
+  extraTiles = {};
   selectLevel(+sel.value);
   status('all saved edits cleared');
 };
