@@ -50,11 +50,23 @@
     r.addEventListener('change', () => { if (r.checked) { cfg.scale = r.value; save(); applyLayer(); } });
   });
 
+  // on non-play screens ("PRESS ENTER" story/title/end cards), any tap
+  // should advance - same as the canvas tap-to-continue listener in
+  // game.js, but on-screen buttons sit on top of the canvas and would
+  // otherwise swallow the touch before it ever reaches it.
+  const CONTINUE_STATES = ['title', 'intro', 'cut', 'gameover', 'victory'];
+  function tapContinue() {
+    if (CONTINUE_STATES.indexOf(G.state) < 0) return;
+    vkeyDown('start');
+    setTimeout(() => vkeyUp('start'), 80);
+  }
+
   // ---- generic press-and-hold button -> virtual key ----
   function wireButton(el, key) {
     let down = false;
     const press = ev => {
       ev.preventDefault();
+      tapContinue();
       if (down) return;
       down = true;
       el.classList.add('pressed');
@@ -80,6 +92,20 @@
   const DEAD = 12, MAXR = 34;
 
   function clearDirs() { DIRS.forEach(vkeyUp); }
+
+  // pure: screen-space angle (atan2 degrees, 0=right, 90=down, -90=up) -> dirs
+  function angleToDirs(deg) {
+    if (deg >= -22.5 && deg < 22.5) return ['right'];
+    if (deg >= 22.5 && deg < 67.5) return ['right', 'down'];
+    if (deg >= 67.5 && deg < 112.5) return ['down'];
+    if (deg >= 112.5 && deg < 157.5) return ['left', 'down'];
+    if (deg >= 157.5 || deg < -157.5) return ['left'];
+    if (deg >= -157.5 && deg < -112.5) return ['left', 'up'];
+    if (deg >= -112.5 && deg < -67.5) return ['up'];
+    return ['right', 'up'];        // -67.5 .. -22.5
+  }
+  window.__bbAngleToDirs = angleToDirs;  // exposed for tests only
+
   function updateStick(cx, cy) {
     const dx = cx - originX, dy = cy - originY;
     const dist = Math.hypot(dx, dy);
@@ -88,17 +114,10 @@
     stickKnob.style.transform = 'translate(' + (Math.cos(ang) * r) + 'px,' + (Math.sin(ang) * r) + 'px)';
     clearDirs();
     if (dist < DEAD) return;
-    const deg = ang * 180 / Math.PI;   // -180..180, 0=right, 90=down
-    if (deg > -22.5 && deg <= 22.5) vkeyDown('right');
-    else if (deg <= 67.5) { vkeyDown('right'); vkeyDown('down'); }
-    else if (deg <= 112.5) vkeyDown('down');
-    else if (deg <= 157.5) { vkeyDown('left'); vkeyDown('down'); }
-    else if (deg > 157.5 || deg <= -157.5) vkeyDown('left');
-    else if (deg <= -112.5) { vkeyDown('left'); vkeyDown('up'); }
-    else if (deg <= -67.5) vkeyDown('up');
-    else { vkeyDown('right'); vkeyDown('up'); }
+    angleToDirs(ang * 180 / Math.PI).forEach(vkeyDown);
   }
   stickZone.addEventListener('pointerdown', ev => {
+    tapContinue();
     if (stickId !== null) return;
     ev.preventDefault();
     stickId = ev.pointerId;
