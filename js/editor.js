@@ -792,6 +792,31 @@ $('copyBtn').onclick = () => {
   navigator.clipboard.writeText($('export').value).then(() => status('copied'));
 };
 
+// hand every saved edit (maps, custom/overridden tiles, custom/overridden
+// characters) to a human, or to Claude, as one portable JSON file -
+// localStorage never leaves the browser on its own, so this is the way
+// edits get out to be merged into the actual source.
+$('exportAllBtn').onclick = () => {
+  const edits = loadEdits();
+  const keys = Object.keys(edits);
+  if (!keys.length) { status('no saved edits in this browser to export'); return; }
+
+  const maps = keys.filter(k => k.indexOf('::') !== 0);
+  const nTiles = Object.keys(edits['::tiles'] || {}).length;
+  const nChars = Object.keys(edits['::chars'] || {}).length;
+
+  const blob = new Blob([JSON.stringify(edits, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'bbgame-edits.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+
+  navigator.clipboard.writeText(JSON.stringify(edits)).catch(() => {});
+  status('downloaded bbgame-edits.json (also copied) - ' +
+    maps.length + ' map(s), ' + nTiles + ' tile override(s), ' + nChars + ' character override(s)');
+};
+
 // #<mapkey> in the URL preselects that map (e.g. editor.html#WORLD)
 let startIdx = REGISTRY.findIndex(r => r.key === decodeURIComponent((location.hash || '').slice(1)));
 if (startIdx < 0) startIdx = 0;
