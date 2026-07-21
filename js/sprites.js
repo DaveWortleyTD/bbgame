@@ -256,18 +256,36 @@ function rotCW(cv) {
   x.drawImage(cv, 0, 0);
   return out;
 }
-SPR.rv_up = SPR.rv;
-SPR.rv_right = rotCW(SPR.rv_up);
-SPR.rv_down = rotCW(SPR.rv_right);
-SPR.rv_left = rotCW(SPR.rv_down);
-
-SPR.jeep_right = rotCW(SPR.jeep);
-SPR.jeep_left = rotCW(rotCW(SPR.jeep_right));
-
-SPR.redcar_up = SPR.redcar;
-SPR.redcar_right = rotCW(SPR.redcar_up);
-SPR.redcar_down = rotCW(SPR.redcar_right);
-SPR.redcar_left = rotCW(SPR.redcar_down);
+// vehicles with a base sprite + 4 auto-rotated facings. When the base is
+// edited (level editor character designer), call ROTATE_FAMILIES[name]()
+// to regenerate the facings from the new art. HIDDEN_CHAR_NAMES lists the
+// derived facings so they don't show up as separately "editable" sprites.
+const ROTATE_FAMILIES = {
+  rv() {
+    SPR.rv_up = SPR.rv;
+    SPR.rv_right = rotCW(SPR.rv_up);
+    SPR.rv_down = rotCW(SPR.rv_right);
+    SPR.rv_left = rotCW(SPR.rv_down);
+  },
+  jeep() {
+    SPR.jeep_right = rotCW(SPR.jeep);
+    SPR.jeep_left = rotCW(rotCW(SPR.jeep_right));
+  },
+  redcar() {
+    SPR.redcar_up = SPR.redcar;
+    SPR.redcar_right = rotCW(SPR.redcar_up);
+    SPR.redcar_down = rotCW(SPR.redcar_right);
+    SPR.redcar_left = rotCW(SPR.redcar_down);
+  },
+};
+const HIDDEN_CHAR_NAMES = new Set([
+  'rv_up', 'rv_right', 'rv_down', 'rv_left',
+  'jeep_right', 'jeep_left',
+  'redcar_up', 'redcar_right', 'redcar_down', 'redcar_left',
+]);
+ROTATE_FAMILIES.rv();
+ROTATE_FAMILIES.jeep();
+ROTATE_FAMILIES.redcar();
 
 // Hector in wheelchair (16x16)
 SPR.hector = makeSprite([

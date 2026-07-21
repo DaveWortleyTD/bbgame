@@ -56,6 +56,8 @@
   #designer button:disabled { opacity: .4; cursor: default; }
   #dpreview { image-rendering: pixelated; width: 192px; height: 96px; border: 1px solid #444; }
   #dstatus { color: #f66; min-height: 15px; }
+  #designer input[type=number] { background: #111; color: #eee; border: 1px solid #444; padding: 3px; font-family: monospace; }
+  .hide { display: none !important; }
 </style>
 </head>
 <body>
@@ -97,16 +99,16 @@
     <div id="stats"></div>
   </div>
 </div>
-<!-- tile library overlay -->
+<!-- tile / character library overlay (shared) -->
 <div id="library" class="overlay">
   <div class="panel">
-    <h3>TILE LIBRARY - every tile from every level</h3>
+    <h3 id="libtitle">TILE LIBRARY - every tile from every level</h3>
     <div id="liblist"></div>
     <button id="libclose">close</button>
   </div>
 </div>
 
-<!-- tile designer overlay -->
+<!-- tile / character designer overlay (shared) -->
 <div id="designer" class="overlay">
   <div class="panel">
     <h3 id="dtitle">NEW TILE</h3>
@@ -116,13 +118,18 @@
         <div id="dpalette"></div>
         <select id="dload"></select>
         <canvas id="dpreview" width="96" height="48"></canvas>
+        <div class="row" id="dNewDims">
+          <label>w <input type="number" id="dwidth" min="4" max="32" value="16" style="width:48px"></label>
+          <label>h <input type="number" id="dheight" min="4" max="32" value="16" style="width:48px"></label>
+          <span style="color:#777;font-size:11px">(new character canvas size)</span>
+        </div>
         <div class="row">
-          <input type="text" id="dname" placeholder="tile name" maxlength="16" size="14">
-          <label><input type="checkbox" id="dsolid"> solid (blocks walking)</label>
+          <input type="text" id="dname" placeholder="name" maxlength="16" size="14">
+          <label id="dsolidWrap"><input type="checkbox" id="dsolid"> solid (blocks walking)</label>
         </div>
         <div id="dstatus"></div>
         <div class="row">
-          <button id="dsave"><b>save tile</b></button>
+          <button id="dsave"><b id="dsaveLabel">save tile</b></button>
           <button id="ddelete">delete</button>
           <button id="dcancel">cancel</button>
         </div>

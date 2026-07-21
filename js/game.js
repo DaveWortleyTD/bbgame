@@ -1098,6 +1098,15 @@ function renderVictory() {
         n++;
       }
     }
+    // custom character/sprite designs: {name: {px: [rows of palette chars]}}
+    const cc = edits['::chars'];
+    if (cc) {
+      for (const name in cc) {
+        SPR[name] = makeSprite(cc[name].px);
+        if (ROTATE_FAMILIES[name]) ROTATE_FAMILIES[name]();
+        n++;
+      }
+    }
     for (const k in edits) {
       if (k.indexOf('::tilemap:') === 0) {   // per-map char -> tile additions
         const def = reg[k.slice(10)];

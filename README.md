@@ -91,6 +91,16 @@ alt-click picks the char under the cursor, Ctrl+Z undoes.
   creations — has an **edit** link, so you can repaint `sand`, `brick`,
   `rock`, etc. directly; the change applies everywhere that tile is used.
   A **revert to original** button undoes it and restores the shipped art.
+- **Character library** works the same way for every character/sprite in
+  the game — Walt, Jesse, every NPC and enemy, the RV, pickups — with an
+  **edit** link in the library and directly in any map's palette next to
+  the enemy/ally/pickup/object it belongs to. The designer adapts to each
+  sprite's real size (8×8 up to 16×20), and **new character** lets you
+  pick a canvas size from scratch. Saving overrides that name everywhere
+  it's used in the actual game (title screen, all missions, the world);
+  editing the RV or a vehicle automatically regenerates its four turning
+  directions from the new art. Built-ins get the same **revert to
+  original** safety net as tiles.
 
 ## Files
 
