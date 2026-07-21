@@ -16,6 +16,7 @@ ctx.imageSmoothingEnabled = false;
 // ---------------- Input ----------------
 const keysDown = new Set();
 const keysHit = new Set();     // pressed this frame
+const virtualDown = new Set(); // pressed via on-screen touch controls (js/touch.js)
 const KEYMAP = {
   ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down',
   ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
@@ -34,8 +35,26 @@ window.addEventListener('keyup', ev => {
   const k = KEYMAP[ev.code];
   if (k) keysDown.delete(k);
 });
-const held = k => keysDown.has(k);
+const held = k => keysDown.has(k) || virtualDown.has(k);
 const hit = k => keysHit.has(k);
+
+// on-screen touch controls (js/touch.js) drive the same input state as
+// the keyboard through these two entry points.
+function vkeyDown(k) {
+  AUDIO.ensure(); AUDIO.startMusic();
+  if (!virtualDown.has(k)) keysHit.add(k);
+  virtualDown.add(k);
+}
+function vkeyUp(k) { virtualDown.delete(k); }
+
+// tapping/clicking the screen advances title/intro/cutscene/end screens,
+// same as pressing Enter - lets touch devices play without a keyboard
+canvas.addEventListener('pointerdown', () => {
+  if (['title', 'intro', 'cut', 'gameover', 'victory'].indexOf(G.state) >= 0) {
+    vkeyDown('start');
+    setTimeout(() => vkeyUp('start'), 80);
+  }
+});
 
 // ---------------- Game state ----------------
 const G = {
@@ -464,6 +483,25 @@ function triggerAlarm() {
   G.vars.alarm = 4;
 }
 
+// auto-aim: nearest living enemy within range and a generous forward cone
+// of the player's current facing, with line-of-sight. Falls back to null
+// (straight shot in the facing direction) so aiming still matters, but a
+// near-miss facing still connects — same spirit as old console shooters.
+function findAutoAimTarget(p) {
+  let best = null, bd = 150;
+  for (const e of G.enemies) {
+    if (e.dead || NO_HIT.has(e.ai)) continue;
+    const dx = e.x - p.x, dy = e.y - p.y;
+    const d = Math.hypot(dx, dy);
+    if (d >= bd) continue;
+    const dot = (dx * p.fx + dy * p.fy) / (d || 1);
+    if (dot < 0.35) continue;           // ~70 deg half-cone in front of facing
+    if (!los(p.x, p.y, e.x, e.y)) continue;
+    bd = d; best = e;
+  }
+  return best;
+}
+
 // ---------------- Player update ----------------
 function updatePlayer(dt) {
   const p = G.player;
@@ -503,10 +541,13 @@ function updatePlayer(dt) {
     }
   }
 
-  // shooting
+  // shooting (auto-aims at the nearest enemy roughly ahead of you)
   if (p.gun && held('fire') && p.fireCool <= 0) {
     p.fireCool = 0.22;
-    fireBullet(p.x, p.y - 2, p.fx, p.fy, 'player', 1);
+    const target = findAutoAimTarget(p);
+    const dx = target ? target.x - p.x : p.fx;
+    const dy = target ? target.y - p.y : p.fy;
+    fireBullet(p.x, p.y - 2, dx, dy, 'player', 1);
   }
   // bomb (fulminated mercury)
   if (p.bombs > 0 && hit('bomb')) {

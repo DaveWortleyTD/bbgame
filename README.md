@@ -27,6 +27,19 @@ python3 -m http.server 8000
 | Enter | Start / advance story cards |
 | M | Mute · 0 dev-skip mission |
 
+Firing auto-aims at the nearest enemy roughly ahead of you (in range, in a
+forward cone, with line of sight) — you still have to face a target, but a
+near-miss facing still connects, like an old console shooter. Nothing in
+your blind spot gets auto-targeted.
+
+**Touch devices** get on-screen controls automatically (a D-pad or floating
+joystick, plus FIRE/USE/BOMB buttons); tapping the screen also advances
+title/story/end cards, so the whole game is playable without a keyboard.
+The gear icon (top-right of the screen) opens **control settings** — swap
+D-pad for a floating joystick, resize the buttons, or turn on-screen
+controls on/off — saved in the browser. `?touchui=1` forces controls on
+for testing on a mouse-only device.
+
 Dev shortcuts: `?level=N` jumps to mission N (1-22); `?world` (+`&at=X,Y`)
 drops you into the city.
 

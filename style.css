@@ -66,3 +66,153 @@ html, body {
   font-size: 11px;
   letter-spacing: 2px;
 }
+
+/* ---------------- touch controls ---------------- */
+#touchlayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;   /* only real buttons below opt back in */
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* clusters are opt-in per scheme; gearBtn always stays reachable so
+   settings (incl. re-enabling controls) are never permanently hidden */
+.ctrl-cluster { display: none; }
+#touchlayer[data-scheme="dpad"] #padDpad { display: block; }
+#touchlayer[data-scheme="stick"] #padStick { display: block; }
+#touchlayer #padActions { display: block; }
+#touchlayer.hidden-controls .ctrl-cluster { display: none !important; }
+
+#touchlayer button {
+  pointer-events: auto;
+  touch-action: none;
+  font-family: monospace;
+  color: #eee;
+  background: rgba(40, 40, 50, .55);
+  border: 2px solid rgba(200, 220, 255, .35);
+  border-radius: 10px;
+  -webkit-tap-highlight-color: transparent;
+}
+#touchlayer button.pressed,
+#touchlayer button:active {
+  background: rgba(110, 253, 213, .35);
+  border-color: #6fd;
+}
+
+#gearBtn {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 30px; height: 30px;
+  font-size: 16px;
+  line-height: 26px;
+  border-radius: 50%;
+  opacity: .55;
+}
+#gearBtn:hover { opacity: 1; }
+
+/* fixed D-pad, bottom-left */
+#padDpad {
+  position: absolute;
+  left: 16px; bottom: 16px;
+  width: var(--pad-size, 132px); height: var(--pad-size, 132px);
+}
+#padDpad .dbtn {
+  position: absolute;
+  width: 40%; height: 40%;
+  font-size: 18px;
+}
+#dUp    { top: 0;    left: 30%; }
+#dDown  { bottom: 0; left: 30%; }
+#dLeft  { left: 0;   top: 30%; }
+#dRight { right: 0;  top: 30%; }
+
+/* floating joystick, bottom-left zone */
+#padStick {
+  position: absolute;
+  left: 0; bottom: 0;
+  width: 46%; height: 55%;
+  pointer-events: auto;
+  touch-action: none;
+}
+#stickBase {
+  position: absolute;
+  display: none;
+  width: 84px; height: 84px;
+  margin-left: -42px; margin-top: -42px;
+  border-radius: 50%;
+  background: rgba(40, 40, 50, .45);
+  border: 2px solid rgba(200, 220, 255, .3);
+}
+#stickKnob {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 38px; height: 38px;
+  margin-left: -19px; margin-top: -19px;
+  border-radius: 50%;
+  background: rgba(110, 253, 213, .5);
+  border: 2px solid #6fd;
+}
+
+/* action buttons, bottom-right */
+#padActions {
+  position: absolute;
+  right: 14px; bottom: 16px;
+  width: 168px; height: 132px;
+}
+#padActions .abtn {
+  position: absolute;
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  font-size: 13px;
+}
+#btnUse  { right: 0;  bottom: 46px; }
+#btnBomb { right: 60px; bottom: 0; }
+#btnFire {
+  right: 0; bottom: 0;
+  width: 68px; height: 68px;
+  font-size: 12px;
+  font-weight: bold;
+  background: rgba(120, 30, 30, .55);
+  border-color: rgba(255, 160, 160, .4);
+}
+#btnFire.pressed, #btnFire:active { background: rgba(255, 90, 90, .5); border-color: #f88; }
+
+/* size variants */
+#touchlayer[data-scale="small"]  { --pad-size: 104px; }
+#touchlayer[data-scale="small"] #padActions .abtn { width: 42px; height: 42px; font-size: 11px; }
+#touchlayer[data-scale="small"] #btnFire { width: 56px; height: 56px; }
+#touchlayer[data-scale="large"] { --pad-size: 160px; }
+#touchlayer[data-scale="large"] #padActions .abtn { width: 62px; height: 62px; font-size: 14px; }
+#touchlayer[data-scale="large"] #btnFire { width: 80px; height: 80px; }
+#touchlayer[data-scale="large"] #padActions { width: 196px; height: 156px; }
+
+/* settings modal */
+#settingsPanel {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.7);
+  align-items: center; justify-content: center;
+  z-index: 20;
+}
+#settingsPanel.open { display: flex; }
+#settingsBox {
+  background: #1b1b22;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 18px 22px;
+  font-family: monospace;
+  color: #ccc;
+  min-width: 240px;
+}
+#settingsBox h3 { color: #6fd; font-size: 13px; margin-bottom: 12px; letter-spacing: 1px; }
+#settingsBox .sgroup { margin-top: 12px; padding-top: 10px; border-top: 1px solid #333; }
+#settingsBox .slabel { color: #888; font-size: 11px; margin-bottom: 6px; letter-spacing: 1px; }
+#settingsBox .srow { display: block; padding: 4px 0; font-size: 13px; cursor: pointer; }
+#settingsBox input { margin-right: 8px; }
+#settingsBox button {
+  margin-top: 16px;
+  width: 100%;
+  background: #2a2a34; color: #eee; border: 1px solid #444;
+  padding: 7px; font-family: monospace; cursor: pointer; border-radius: 4px;
+}
+#settingsBox button:hover { background: #3a3a48; }

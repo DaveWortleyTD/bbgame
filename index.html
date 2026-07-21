@@ -12,12 +12,53 @@
     <canvas id="game" width="320" height="240"></canvas>
     <div id="scanlines"></div>
     <div id="vignette"></div>
+    <div id="touchlayer">
+      <button id="gearBtn" title="control settings">&#9881;</button>
+
+      <div id="padDpad" class="ctrl-cluster">
+        <button class="dbtn" id="dUp" data-k="up">&#9650;</button>
+        <button class="dbtn" id="dLeft" data-k="left">&#9664;</button>
+        <button class="dbtn" id="dRight" data-k="right">&#9654;</button>
+        <button class="dbtn" id="dDown" data-k="down">&#9660;</button>
+      </div>
+
+      <div id="padStick" class="ctrl-cluster">
+        <div id="stickBase"><div id="stickKnob"></div></div>
+      </div>
+
+      <div id="padActions" class="ctrl-cluster">
+        <button class="abtn" id="btnBomb" data-k="bomb">C</button>
+        <button class="abtn" id="btnUse" data-k="act">E</button>
+        <button class="abtn big" id="btnFire" data-k="fire">FIRE</button>
+      </div>
+    </div>
   </div>
   <div id="label">BREAKING&nbsp;BAD &middot; ALBUQUERQUE ENTERTAINMENT SYSTEM &middot; 1983 &middot; <a href="editor.html" style="color:#8d8d97">EDITOR</a></div>
 </div>
+
+<div id="settingsPanel">
+  <div id="settingsBox">
+    <h3>CONTROL SETTINGS</h3>
+    <label class="srow"><input type="checkbox" id="showControlsChk"> show on-screen controls</label>
+    <div class="sgroup">
+      <div class="slabel">MOVEMENT STYLE</div>
+      <label class="srow"><input type="radio" name="scheme" value="dpad"> fixed D-pad</label>
+      <label class="srow"><input type="radio" name="scheme" value="stick"> floating joystick</label>
+    </div>
+    <div class="sgroup">
+      <div class="slabel">BUTTON SIZE</div>
+      <label class="srow"><input type="radio" name="scale" value="small"> small</label>
+      <label class="srow"><input type="radio" name="scale" value="medium"> medium</label>
+      <label class="srow"><input type="radio" name="scale" value="large"> large</label>
+    </div>
+    <button id="closeSettings">DONE</button>
+  </div>
+</div>
+
 <script src="js/sprites.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/levels.js"></script>
 <script src="js/game.js"></script>
+<script src="js/touch.js"></script>
 </body>
 </html>
