@@ -87,6 +87,10 @@ alt-click picks the char under the cursor, Ctrl+Z undoes.
 - **New tile / edit** opens a 16x16 pixel designer using the game palette:
   paint, copy from an existing tile, mark it solid or walkable, save, and
   it joins the library (and works in-game via the same save-to-game flow).
+  Every tile — including the game's built-in ones, not just custom
+  creations — has an **edit** link, so you can repaint `sand`, `brick`,
+  `rock`, etc. directly; the change applies everywhere that tile is used.
+  A **revert to original** button undoes it and restores the shipped art.
 
 ## Files
 

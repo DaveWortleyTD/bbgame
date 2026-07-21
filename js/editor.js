@@ -59,6 +59,41 @@ function loadEdits() {
 }
 function saveEdits(edits) { localStorage.setItem(STORE_KEY, JSON.stringify(edits)); }
 
+// snapshot of every shipped tile (name -> {cv, solid}), taken before any
+// saved overrides are applied below. This is what "revert to original"
+// restores - we never mutate a canvas in place, only ever replace the
+// TILE[name] pointer, so keeping a reference (no cloning) is safe.
+const BUILTIN = {};
+for (const name in TILE) BUILTIN[name] = { cv: TILE[name], solid: SOLID.has(name) };
+
+// sample a tile canvas into a 16-row palette-char grid, snapping each
+// pixel to the nearest game-palette color. Used both for "copy from
+// existing" and for opening the designer on an unmodified built-in tile.
+function sampleTilePixels(cv) {
+  const c = cv.getContext('2d');
+  const img = c.getImageData(0, 0, 16, 16).data;
+  const colv = Object.keys(COL).map(k => {
+    const h = COL[k];
+    return [k, parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  });
+  const rows = [];
+  for (let j = 0; j < 16; j++) {
+    let row = '';
+    for (let i = 0; i < 16; i++) {
+      const o = (j * 16 + i) * 4;
+      if (img[o + 3] < 128) { row += '.'; continue; }
+      let best = 'k', bd = 1e9;
+      for (const [k, r, g, b] of colv) {
+        const d = (img[o] - r) ** 2 + (img[o + 1] - g) ** 2 + (img[o + 2] - b) ** 2;
+        if (d < bd) { bd = d; best = k; }
+      }
+      row += best;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
 // restore custom tiles + per-map tile mappings from the store
 (function restoreTileState() {
   const edits = loadEdits();
@@ -163,7 +198,7 @@ function buildPalette() {
     const nm = document.createElement('span');
     nm.className = 'nm'; nm.textContent = info.name;
     row.append(sw, chEl, nm);
-    if (info.kind === 'tile' && customTiles[info.tile]) {
+    if (info.kind === 'tile') {
       const ed = document.createElement('span');
       ed.className = 'edit'; ed.textContent = 'edit';
       ed.onclick = ev => { ev.stopPropagation(); openDesigner(info.tile); };
@@ -309,14 +344,13 @@ function openLibrary() {
     sw.getContext('2d').drawImage(TILE[name], 0, 0);
     const nm = document.createElement('span');
     nm.className = 'nm';
-    nm.textContent = name + (SOLID.has(name) ? ' (solid)' : '') + (customTiles[name] ? ' *custom' : '');
+    const tag = customTiles[name] ? (BUILTIN[name] ? ' *modified' : ' *custom') : '';
+    nm.textContent = name + (SOLID.has(name) ? ' (solid)' : '') + tag;
     row.append(sw, nm);
-    if (customTiles[name]) {
-      const ed = document.createElement('span');
-      ed.className = 'edit'; ed.textContent = 'edit';
-      ed.onclick = ev => { ev.stopPropagation(); ov.style.display = 'none'; openDesigner(name); };
-      row.appendChild(ed);
-    }
+    const ed = document.createElement('span');
+    ed.className = 'edit'; ed.textContent = 'edit';
+    ed.onclick = ev => { ev.stopPropagation(); ov.style.display = 'none'; openDesigner(name); };
+    row.appendChild(ed);
     row.onclick = () => {
       const ch = charForTile(name);
       if (!ch) { status('no free map chars left for this map'); return; }
@@ -345,15 +379,27 @@ function blankPx() { return Array.from({ length: 16 }, () => '.'.repeat(16)); }
 function openDesigner(name) {
   D.editing = name;
   if (name && customTiles[name]) {
+    // either a pure custom tile, or a saved override of a built-in
     D.px = customTiles[name].px.slice();
     $('dname').value = name;
     $('dsolid').checked = !!customTiles[name].solid;
+  } else if (name && TILE[name]) {
+    // unmodified built-in: sample its real pixels rather than starting blank
+    D.px = sampleTilePixels(TILE[name]);
+    $('dname').value = name;
+    $('dsolid').checked = SOLID.has(name);
   } else {
     D.px = blankPx();
     $('dname').value = '';
     $('dsolid').checked = false;
   }
-  $('dtitle').textContent = name ? 'EDIT TILE: ' + name : 'NEW TILE';
+  if (!name) $('dtitle').textContent = 'NEW TILE';
+  else if (BUILTIN[name] && !customTiles[name]) $('dtitle').textContent = 'EDIT BUILT-IN TILE: ' + name;
+  else if (BUILTIN[name]) $('dtitle').textContent = 'EDIT MODIFIED TILE: ' + name;
+  else $('dtitle').textContent = 'EDIT TILE: ' + name;
+  const isBuiltin = name && BUILTIN[name];
+  $('ddelete').textContent = isBuiltin ? 'revert to original' : 'delete';
+  $('ddelete').disabled = !!(isBuiltin && !customTiles[name]);   // nothing to revert yet
   buildDesignerPalette();
   buildLoadFrom();
   drawDesigner();
@@ -388,30 +434,7 @@ function buildLoadFrom() {
 $('dload').onchange = ev => {
   const name = ev.target.value;
   if (!name) return;
-  if (customTiles[name]) { D.px = customTiles[name].px.slice(); drawDesigner(); return; }
-  // sample the built-in tile canvas, snapping to the nearest palette color
-  const c = TILE[name].getContext('2d');
-  const img = c.getImageData(0, 0, 16, 16).data;
-  const colv = Object.keys(COL).map(k => {
-    const h = COL[k];
-    return [k, parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-  });
-  const rows = [];
-  for (let j = 0; j < 16; j++) {
-    let row = '';
-    for (let i = 0; i < 16; i++) {
-      const o = (j * 16 + i) * 4;
-      if (img[o + 3] < 128) { row += '.'; continue; }
-      let best = 'k', bd = 1e9;
-      for (const [k, r, g, b] of colv) {
-        const d = (img[o] - r) ** 2 + (img[o + 1] - g) ** 2 + (img[o + 2] - b) ** 2;
-        if (d < bd) { bd = d; best = k; }
-      }
-      row += best;
-    }
-    rows.push(row);
-  }
-  D.px = rows;
+  D.px = customTiles[name] ? customTiles[name].px.slice() : sampleTilePixels(TILE[name]);
   drawDesigner();
   ev.target.value = '';
 };
@@ -481,15 +504,36 @@ $('dsave').onclick = () => {
   if ($('dsolid').checked) SOLID.add(name); else SOLID.delete(name);
   persistTileState();
   $('designer').style.display = 'none';
+  const overridingBuiltin = BUILTIN[name] && name === D.editing;
   const ch = charForTile(name);
-  if (ch) { brush = ch; status("tile '" + name + "' saved - painting with '" + ch + "'"); }
+  const savedMsg = overridingBuiltin
+    ? "'" + name + "' overridden everywhere it's used - painting with '" + ch + "'"
+    : "tile '" + name + "' saved - painting with '" + ch + "'";
+  if (ch) { brush = ch; status(savedMsg); }
   buildPalette();
   render();   // repaint in case an edited tile is already on the map
 };
 $('dcancel').onclick = () => { $('designer').style.display = 'none'; };
 $('ddelete').onclick = () => {
-  if (!D.editing || !customTiles[D.editing]) { $('designer').style.display = 'none'; return; }
   const name = D.editing;
+  if (!name) { $('designer').style.display = 'none'; return; }
+
+  if (BUILTIN[name]) {
+    // revert an edited built-in back to its shipped pixels/solidity -
+    // the tile name keeps existing, so nothing else needs to change
+    if (!customTiles[name]) { $('designer').style.display = 'none'; return; }
+    TILE[name] = BUILTIN[name].cv;
+    if (BUILTIN[name].solid) SOLID.add(name); else SOLID.delete(name);
+    delete customTiles[name];
+    persistTileState();
+    $('designer').style.display = 'none';
+    buildPalette();
+    render();
+    status("'" + name + "' reverted to the built-in original");
+    return;
+  }
+
+  if (!customTiles[name]) { $('designer').style.display = 'none'; return; }
   const usedBy = [];
   for (const mk in extraTiles)
     for (const ch in extraTiles[mk])
@@ -582,7 +626,15 @@ $('saveBtn').onclick = () => {
 };
 $('clearBtn').onclick = () => {
   localStorage.removeItem(STORE_KEY);
-  for (const name in customTiles) { delete TILE[name]; SOLID.delete(name); }
+  for (const name in customTiles) {
+    if (BUILTIN[name]) {                          // restore, don't delete
+      TILE[name] = BUILTIN[name].cv;
+      if (BUILTIN[name].solid) SOLID.add(name); else SOLID.delete(name);
+    } else {
+      delete TILE[name];
+      SOLID.delete(name);
+    }
+  }
   customTiles = {};
   extraTiles = {};
   selectLevel(+sel.value);
