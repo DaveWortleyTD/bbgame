@@ -59,14 +59,6 @@ html, body {
     rgba(0,0,0,0) 60%, rgba(0,0,0,.35) 100%);
 }
 
-#label {
-  margin-top: 10px;
-  text-align: center;
-  color: #8d8d97;
-  font-size: 11px;
-  letter-spacing: 2px;
-}
-
 /* ---------------- touch controls ---------------- */
 #touchlayer {
   position: absolute;

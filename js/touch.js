@@ -14,7 +14,7 @@
     try { return JSON.parse(localStorage.getItem(STORE)) || {}; }
     catch (e) { return {}; }
   }
-  const cfg = Object.assign({ scheme: 'dpad', scale: 'medium', show: isTouch }, load());
+  const cfg = Object.assign({ scheme: isTouch ? 'stick' : 'dpad', scale: 'medium', show: isTouch }, load());
   // ?touchui=1 forces the on-screen controls on (handy on hybrid laptops, or to test)
   if (/[?&]touchui=1\b/.test(location.search)) cfg.show = true;
   function save() { localStorage.setItem(STORE, JSON.stringify(cfg)); }
