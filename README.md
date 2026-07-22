@@ -96,6 +96,9 @@ alt-click picks the char under the cursor, Ctrl+Z undoes.
   Every tile — including the game's built-in ones, not just custom
   creations — has an **edit** link, so you can repaint `sand`, `brick`,
   `rock`, etc. directly; the change applies everywhere that tile is used.
+  **Rotate 90° / flip H / flip V** transform the pixels currently loaded —
+  rename before saving to spin up a new variant (e.g. a rotated corner
+  piece) without touching the original.
   A **revert to original** button undoes it and restores the shipped art.
 - **Character library** works the same way for every character/sprite in
   the game — Walt, Jesse, every NPC and enemy, the RV, pickups — with an

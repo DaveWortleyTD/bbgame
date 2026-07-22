@@ -542,6 +542,31 @@ $('dload').onchange = ev => {
   ev.target.value = '';
 };
 
+// rotate/flip the pixels currently in the designer - handy for spinning up
+// a directional variant (e.g. a corner/rotated wall) to save as a new tile
+// without redrawing from scratch. Square grids (all tiles) keep their size;
+// rectangular ones (characters) swap width/height on a 90-degree turn.
+function rotatePxCW(px) {
+  const h = px.length, w = px[0].length;
+  const out = [];
+  for (let i = 0; i < w; i++) {
+    let row = '';
+    for (let j = h - 1; j >= 0; j--) row += px[j][i];
+    out.push(row);
+  }
+  return out;
+}
+function flipPxH(px) { return px.map(r => r.split('').reverse().join('')); }
+function flipPxV(px) { return px.slice().reverse(); }
+
+$('drotate').onclick = () => {
+  D.px = rotatePxCW(D.px);
+  D.w = D.px[0].length; D.h = D.px.length;
+  drawDesigner();
+};
+$('dfliph').onclick = () => { D.px = flipPxH(D.px); drawDesigner(); };
+$('dflipv').onclick = () => { D.px = flipPxV(D.px); drawDesigner(); };
+
 function drawDesigner() {
   dcanvas.width = D.w * DCELL;
   dcanvas.height = D.h * DCELL;
