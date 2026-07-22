@@ -309,9 +309,9 @@ const LEVELS = [
 {
   name: 'THE FIRST COOK',
   epi: 'APPLY YOURSELF',
-  story: ['DEEP IN THE DESERT.', 'WALT RUNS THE COOK,', 'STEP BY STEP.', 'FOLLOW THE ARROW.'],
+  story: ['INSIDE THE KRYSTAL SHIP.', 'WALT RUNS THE COOK,', 'STEP BY STEP.', 'FOLLOW THE ARROW.'],
   playAs: 'walt',
-  tiles: { '#': 'labwall', '.': 'labfloor', 'T': 'tank' },
+  tiles: { '#': 'wallhome', '.': 'carpet', 'T': 'table', 'b': 'bed' },
   things: {
     '1': orderedThing(0, 'flask'),
     '2': orderedThing(1, 'barrel'),
@@ -346,14 +346,13 @@ const LEVELS = [
     ],
   },
   map: [
-    '######################',
-    '#....................#',
-    '#..TT....TT....TT....#',
-    '#..1.....2......3....#',
-    '#....................#',
-    '#........P...........#',
-    '#....................#',
-    '######################',
+    '############################',
+    '#..........................#',
+    '#....T..TTTTT...TT.....bb..#',
+    '#..P.......................#',
+    '#........1.2.3..TT......bb.#',
+    '#..........................#',
+    '############################',
   ],
 },
 
