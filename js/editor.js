@@ -49,6 +49,7 @@ let painting = 0;          // 1 = paint, 2 = erase
 let customTiles = {};      // name -> {px: [16 strings], solid: bool}
 let customChars = {};      // name -> {px: [rows of palette chars]}
 let extraTiles = {};       // mapKey -> {char: tileName}
+let customLevels = {};     // id -> {name, tiles, things, map} - brand-new draft levels
 
 const $ = id => document.getElementById(id);
 const view = $('view');
@@ -141,6 +142,24 @@ function persistCharState() {
   saveEdits(edits);
 }
 
+// restore draft levels created via "+ new level" (not part of the shipped
+// game yet - these just need to exist in REGISTRY so they're paintable)
+(function restoreCustomLevelsState() {
+  const edits = loadEdits();
+  customLevels = edits['::levels'] || {};
+  for (const id in customLevels) {
+    const def = customLevels[id];
+    REGISTRY.push({ key: 'CUSTOM:' + id, label: '★ ' + def.name, def, custom: true });
+  }
+})();
+
+function persistCustomLevelsState() {
+  const edits = loadEdits();
+  if (Object.keys(customLevels).length) edits['::levels'] = customLevels;
+  else delete edits['::levels'];
+  saveEdits(edits);
+}
+
 // effective char->tile mapping for the current map (base + library additions)
 function allTiles() {
   return Object.assign({}, cur.def.tiles, extraTiles[cur.key] || {});
@@ -182,6 +201,7 @@ function selectLevel(idx) {
   grid = rows.map(r => r.padEnd(w, '.').split(''));
   undoStack = [];
   brush = '.';
+  $('deleteLevelBtn').classList.toggle('hide', !cur.custom);
   buildPalette();
   render();
   updateExport();
@@ -686,7 +706,19 @@ $('ddelete').onclick = () => {
 function mapRows() { return grid.map(r => r.join('')); }
 
 function updateExport() {
-  let out = '  map: [\n' + mapRows().map(r => "    '" + r + "',").join('\n') + '\n  ],';
+  let out;
+  if (cur.custom) {
+    // brand-new level: there's no existing js/levels.js entry to diff
+    // against, so hand over a full paste-ready object skeleton instead
+    // of just a map snippet.
+    out = '{\n  name: ' + JSON.stringify(cur.def.name) + ',\n' +
+      '  tiles: ' + JSON.stringify(Object.assign({}, cur.def.tiles, extraTiles[cur.key] || {})) + ',\n' +
+      '  things: {},  // describe what should happen here and Claude will fill this in\n' +
+      '  map: [\n' + mapRows().map(r => "    '" + r + "',").join('\n') + '\n  ],\n},';
+    $('export').value = out;
+    return;
+  }
+  out = '  map: [\n' + mapRows().map(r => "    '" + r + "',").join('\n') + '\n  ],';
   const extra = extraTiles[cur.key];
   if (extra && Object.keys(extra).length) {
     out += '\n\n  // add to this level\'s tiles: {}\n';
@@ -733,11 +765,16 @@ function status(text, transient) {
 
 // ---- toolbar ----
 const sel = $('levelSel');
-REGISTRY.forEach((r, i) => {
-  const o = document.createElement('option');
-  o.value = i; o.textContent = r.label;
-  sel.appendChild(o);
-});
+function rebuildLevelSelect(selectIdx) {
+  sel.innerHTML = '';
+  REGISTRY.forEach((r, i) => {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = r.label;
+    sel.appendChild(o);
+  });
+  if (selectIdx !== undefined) sel.value = selectIdx;
+}
+rebuildLevelSelect();
 sel.onchange = () => selectLevel(+sel.value);
 $('zoomSel').onchange = ev => { zoom = +ev.target.value; render(); };
 $('gridChk').onchange = ev => { showGrid = ev.target.checked; render(); };
@@ -752,7 +789,60 @@ $('revertBtn').onclick = () => {
   grid = grid.map(r => { while (r.length < w) r.push('.'); return r; });
   undoStack = [];
   render(); updateExport();
-  status('reverted to the shipped map');
+  status(cur.custom ? 'reverted to the blank template' : 'reverted to the shipped map');
+};
+
+// ---- new / delete custom levels ----
+function slugify(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'level';
+}
+$('newLevelBtn').onclick = () => {
+  $('nlName').value = ''; $('nlWidth').value = 24; $('nlHeight').value = 14; $('nlStatus').textContent = '';
+  $('newLevelPanel').style.display = 'flex';
+};
+$('nlCancel').onclick = () => { $('newLevelPanel').style.display = 'none'; };
+$('nlCreate').onclick = () => {
+  const name = $('nlName').value.trim();
+  const w = Math.max(8, Math.min(84, +$('nlWidth').value || 0));
+  const h = Math.max(8, Math.min(60, +$('nlHeight').value || 0));
+  if (!name) { $('nlStatus').textContent = 'give it a name'; return; }
+  let id = slugify(name);
+  if (customLevels[id]) {
+    let n = 2;
+    while (customLevels[id + '_' + n]) n++;
+    id = id + '_' + n;
+  }
+  const map = [];
+  for (let j = 0; j < h; j++) {
+    let row = '';
+    for (let i = 0; i < w; i++) {
+      row += (j === 0 || j === h - 1 || i === 0 || i === w - 1) ? '#' : (i === 1 && j === 1) ? 'P' : '.';
+    }
+    map.push(row);
+  }
+  const def = { name, tiles: { '#': 'brick', '.': 'walk' }, things: {}, map };
+  customLevels[id] = def;
+  persistCustomLevelsState();
+  REGISTRY.push({ key: 'CUSTOM:' + id, label: '★ ' + name, def, custom: true });
+  rebuildLevelSelect(REGISTRY.length - 1);
+  selectLevel(REGISTRY.length - 1);
+  $('newLevelPanel').style.display = 'none';
+  status("'" + name + "' created - paint away, then tell Claude how to hook it up");
+};
+$('deleteLevelBtn').onclick = () => {
+  if (!cur.custom) return;
+  if (!confirm("Delete draft level '" + cur.def.name + "'? This can't be undone.")) return;
+  const id = cur.key.slice('CUSTOM:'.length);
+  delete customLevels[id];
+  persistCustomLevelsState();
+  const edits = loadEdits();
+  delete edits[cur.key];
+  saveEdits(edits);
+  const idx = REGISTRY.findIndex(r => r.key === cur.key);
+  if (idx >= 0) REGISTRY.splice(idx, 1);
+  rebuildLevelSelect(0);
+  selectLevel(0);
+  status("deleted '" + id + "'");
 };
 $('saveBtn').onclick = () => {
   const issues = validate();
@@ -761,7 +851,7 @@ $('saveBtn').onclick = () => {
   edits[cur.key] = mapRows();
   saveEdits(edits);
   persistTileState();
-  status('saved! refresh the game tab to play it');
+  status(cur.custom ? 'saved - this draft isn\'t wired into the game yet' : 'saved! refresh the game tab to play it');
 };
 $('clearBtn').onclick = () => {
   localStorage.removeItem(STORE_KEY);
@@ -804,6 +894,7 @@ $('exportAllBtn').onclick = () => {
   const maps = keys.filter(k => k.indexOf('::') !== 0);
   const nTiles = Object.keys(edits['::tiles'] || {}).length;
   const nChars = Object.keys(edits['::chars'] || {}).length;
+  const nLevels = Object.keys(edits['::levels'] || {}).length;
 
   const blob = new Blob([JSON.stringify(edits, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -814,7 +905,8 @@ $('exportAllBtn').onclick = () => {
 
   navigator.clipboard.writeText(JSON.stringify(edits)).catch(() => {});
   status('downloaded bbgame-edits.json (also copied) - ' +
-    maps.length + ' map(s), ' + nTiles + ' tile override(s), ' + nChars + ' character override(s)');
+    maps.length + ' map(s), ' + nTiles + ' tile override(s), ' + nChars + ' character override(s), ' +
+    nLevels + ' new level(s)');
 };
 
 // #<mapkey> in the URL preselects that map (e.g. editor.html#WORLD)

@@ -64,6 +64,8 @@
 <div id="topbar">
   <b style="color:#6fd">BB LEVEL EDITOR</b>
   <select id="levelSel"></select>
+  <button id="newLevelBtn" title="create a new blank map, not wired into the game yet">+ new level</button>
+  <button id="deleteLevelBtn" class="hide" title="delete this custom level">delete level</button>
   <select id="zoomSel">
     <option value="1">1x</option>
     <option value="2" selected>2x</option>
@@ -100,6 +102,30 @@
     <div id="stats"></div>
   </div>
 </div>
+<!-- new level overlay -->
+<div id="newLevelPanel" class="overlay">
+  <div class="panel">
+    <h3>NEW LEVEL</h3>
+    <div style="color:#777;font-size:11px;max-width:280px">
+      Creates a blank bordered map you can paint right away. It's not wired
+      into the game yet - tell Claude how it should work (objective, enemies,
+      mechanics) and it'll be added to the campaign in code.
+    </div>
+    <div class="row">
+      <input type="text" id="nlName" placeholder="level name" maxlength="24" size="20">
+    </div>
+    <div class="row">
+      <label>w <input type="number" id="nlWidth" min="8" max="84" value="24" style="width:52px"></label>
+      <label>h <input type="number" id="nlHeight" min="8" max="60" value="14" style="width:52px"></label>
+    </div>
+    <div id="nlStatus" style="color:#f66;min-height:15px"></div>
+    <div class="row">
+      <button id="nlCreate"><b>create</b></button>
+      <button id="nlCancel">cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- tile / character library overlay (shared) -->
 <div id="library" class="overlay">
   <div class="panel">

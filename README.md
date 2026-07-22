@@ -82,6 +82,12 @@ alt-click picks the char under the cursor, Ctrl+Z undoes.
   map** / **clear all saved edits** undo that.
 - **Map as code** shows the `map:` snippet — paste it into `js/levels.js`
   to make the change permanent for everyone.
+- **+ new level** creates a brand-new blank, bordered map (choose a name
+  and size) marked with a ★ in the dropdown. It's a draft only — not
+  wired into the campaign — so paint it however you like and describe the
+  objective/mechanics later to have it added to the game in code. **Map
+  as code** exports a full paste-ready skeleton (name/tiles/map) for it,
+  and **delete level** removes a draft for good.
 - **Tile library** lets any map borrow any tile from any level — pick one
   and it's auto-assigned a free map character for the current map.
 - **New tile / edit** opens a 16x16 pixel designer using the game palette:
